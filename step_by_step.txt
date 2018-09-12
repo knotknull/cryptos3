@@ -1,0 +1,142 @@
+NOTE:  This is a step by step on how to secure an S3 bucket via Lambda (ooooh serverless security!!)
+
+1.  Create S3 bucket
+	YOUR_BUCKET_NAME_HERE 
+
+2.  Create CloudFront Distribution
+	NOTE: CloudFront distribution acts as a middle-man betwen the visitor and the files in the S3 bucket.
+	      The distribution will be connected to a Lambda script that houses the authentication routine.
+
+	1. Create your CloudFront distribution and choose the S3 bucket you just created as the Origin source.
+
+	2. Select "Restrict Bucket Access" and "Create a New Identity" for the Origin Access Identity option.
+
+	3. Select the "Yes, Update Bucket Policy for the Grant Read Permissions on Bucket option.
+		NOTE:  DON'T FORGET TO DO THIS OR YOU WILL HAVE ACCESS PERMISSION ERRORS !!!!
+
+	4. Since we are serving a website / application from S3 bucket be sure to set the Default Root Object as indext.html
+		NOTE:  Put an actual index.html in the bucket
+
+	5. Save your new distribution and make note of the ID(if you have multiple distributions.
+
+		Origin Domain Name:  YOUR_BUCKET_NAME_HERE.s3.amazonaws.com
+		Origin Path:  
+		Origin ID:           YOUR_ORIGIN_ID_HERE 
+	  	Restrict Bucket Access: Yes  
+		Origin Access Identity: [Create a New Identity]  
+		Comment : access-identity-YOUR_BUCKET_NAME_HERE.s3.amazonaws.com (was)  
+			  2nd-access-identity-crypto-s3-test.s3.amazonaws.com (is) 
+		Grant Read Permissions on Bucket: [Yes Update Bucket Policy]
+		Price Class: Use Only US, Canada and Europe
+		Default Root Object:  index.html
+
+
+		Created:  
+				-- NEW --	
+			Distribution ID: <NEWLY_CREATED_DISTRIBUTION_ID>
+			ARN:             <CLOUDFRONT_DISTRIBUTION_ARN> 
+			Domain Name:     <Domain Name> d2s6v1magv5r58.cloudfront.net
+
+3.  Create the Lambda Function
+
+	1. Create a new Lambda function but use one of the pre-existing Blueprints instead of a blank function.
+
+	2. Search for "cloudfront" and select cloudfront-response-generation from the search results.
+
+	3. On the following screen name your function and select the "Create new role from template(s)". 
+	   Give the role a name and add the "Basic Lambda@Edge permissions (for CloudFront trigger)" policy template 
+           to the role.
+		Func Name: YOUR_LAMBDA_FUNCTION_NAME_HERE
+		Role Name: YOUR_LAMBDA_FUNCTION_ROLE_HERE
+
+	4. In the cloudfront section, choose the CloudFront instance you created
+		CloudFront Trigger:  <CLOUDFRONT_DISTRIBUTION_ARN>
+
+	5. Leave the Cache Behavior as "*" and select "Viewer Request" as the _CloudFront Event_.
+
+	6. Finally, check the "Enable trigger and replicate box and click the Save button.
+
+
+4.  Update the Lambda Script and Publish a new version.  Use below code to provide authentication services:
+	NOTE: change authUser and authPass to:  'PUT_USER_LOGIN_HERE' / 'PUT_USER_PASSWORD_HERE'
+
+	1. In the Function Code section, choose the Click here to go to the $LATEST link.
+
+	2. Under the Function Code section, update the code with the authentication code from below and save.
+
+	3. Select Publish new version for the Actions drop down menu.
+
+	4. Enter a version description and Save.
+
+    		> Successfully created version 2 for function YOUR_LAMBDA_FUNCTION_NAME_HERE
+		
+=================================  START CODE  ================================= 
+/**
+ * BASIC Authentication
+ *
+ * Simple authentication script intended to be run by Amazon Lambda to
+ * provide Basic HTTP Authentication for a static website hosted in an
+ * Amazon S3 bucket through Couldfront.
+ *
+ * https://hackernoon.com/serverless-password-protecting-a-static-website-in-an-aws-s3-bucket-bfaaa01b8666
+ */
+ 
+'use strict';
+ 
+exports.handler = (event, context, callback) => {
+ 
+    // Get request and request headers
+    const request = event.Records[0].cf.request;
+    const headers = request.headers;
+ 
+    // Configure authentication
+    const authUser = 'PUT_USER_LOGIN_HERE';
+    const authPass = 'PUT_USER_PASSWORD_HERE';
+ 
+    // Construct the Basic Auth string
+    const authString = 'Basic ' + new Buffer(authUser + ':' + authPass).toString('base64');
+ 
+    // Require Basic authentication
+    if (typeof headers.authorization == 'undefined' || headers.authorization[0].value != authString) {
+        const body = 'Unauthorized';
+        const response = {
+            status: '401',
+            statusDescription: 'Unauthorized',
+            body: body,
+            headers: {
+                'www-authenticate': [{key: 'WWW-Authenticate', value:'Basic'}]
+            },
+        };
+        callback(null, response);
+    }
+ 
+    // Continue request processing if authentication passed
+    callback(null, request);
+};
+=================================  END CODE  ================================= 
+ 
+     
+5.  Add the CloudFront Trigger
+
+	0. Link the new Lambda code version as a trigger to the CloudFront distribution.
+
+	1. Select CloudFront from the Add Triggers menu of the Designer section
+
+	2. Re-select the CloudFront Disttribution ID for the one created earlier.
+
+	3. Select "Viewer Request" and check the "Enable trigger and replicate box.
+
+	4. Click Add to add the trigger to the list.
+
+	5. Click Save to save the Lambda trigger.
+
+6.  Upload and invalidate
+
+	1. Upload files to S3 bucket and leave options as default.
+
+	2. Browse to the Invalidations tab for your CloudFront distribution and create a new Invalidation
+
+	3. Enter /* as the path for the Invalidation to invalidate everything and clide the Invalidate button.
+		After a short time you should see your uploaded files behined you password authentication
+
+
