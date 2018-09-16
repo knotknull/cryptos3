@@ -2,6 +2,7 @@ NOTE:  This is a step by step on how to secure an S3 bucket via Lambda (ooooh se
 
 1.  Create S3 bucket
 	YOUR_BUCKET_NAME_HERE 
+	[barc-hack-s3]
 
 2.  Create CloudFront Distribution
 	NOTE: CloudFront distribution acts as a middle-man betwen the visitor and the files in the S3 bucket.
@@ -33,9 +34,23 @@ NOTE:  This is a step by step on how to secure an S3 bucket via Lambda (ooooh se
 
 		Created:  
 				-- NEW --	
-			Distribution ID: <NEWLY_CREATED_DISTRIBUTION_ID>
-			ARN:             <CLOUDFRONT_DISTRIBUTION_ARN> 
-			Domain Name:     <Domain Name> d2s6v1magv5r58.cloudfront.net
+			Distribution ID: E3BQEKJX76B5SW
+			ARN:             arn:aws:cloudfront::749042557449:distribution/E3BQEKJX76B5SW
+			Domain Name:     d1mee2vlietdm0.cloudfront.net  
+
+
+		Origin Domain Name:  barc-hack-s3.s3.amazonaws.com
+		Origin Path:  
+		Origin ID:           S3-barc-hack-s3
+	  	Restrict Bucket Access: Yes  
+		Origin Access Identity: [Create a New Identity]  
+		Comment : access-identity-YOUR_BUCKET_NAME_HERE.s3.amazonaws.com (was)  
+			  2nd-access-identity-crypto-s3-test.s3.amazonaws.com (is) 
+		Grant Read Permissions on Bucket: [Yes Update Bucket Policy]
+		Price Class: Use Only US, Canada and Europe
+		Default Root Object:  index.html
+
+
 
 3.  Create the Lambda Function
 
